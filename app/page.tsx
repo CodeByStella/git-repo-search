@@ -6,6 +6,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import {
   HiArrowPath,
   HiArrowsUpDown,
+  HiChevronRight,
   HiCodeBracket,
   HiExclamationCircle,
   HiMagnifyingGlass,
@@ -61,6 +62,14 @@ export default function Page() {
   const [error, setError] = useState("")
   const [availableLanguages, setAvailableLanguages] = useState<string[]>([])
   const didRestoreScroll = useRef(false)
+  const keywordInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      keywordInputRef.current?.focus()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   const shownCount = items.length
   const isLoading = isSearching || isPaging
@@ -258,16 +267,17 @@ export default function Page() {
 
       <Card className="jp-shell gap-5 border-border/65 px-4 py-6 sm:gap-6 sm:px-8 sm:py-8">
         <form className="mx-auto flex w-full max-w-4xl flex-col gap-4" onSubmit={handleSearch}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-stretch sm:gap-3">
             <Input
+              ref={keywordInputRef}
               name="keyword"
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="例: nextjs, react, spring"
-              className="h-12 flex-1 border-border/80 bg-background/80 text-[15px] shadow-inner sm:h-11"
+              className="h-12 flex-1 border-border bg-background text-[15px] text-foreground shadow-none sm:h-11 dark:border-white/20 dark:bg-secondary/70 dark:placeholder:text-muted-foreground"
               aria-label="リポジトリ検索キーワード"
             />
-            <Button type="submit" className="h-12 min-w-[7.5rem] gap-2 shadow-md shadow-primary/20 sm:h-11" disabled={isLoading}>
+            <Button type="submit" className="h-12 min-w-30 shrink-0 gap-2 sm:h-11" disabled={isLoading}>
               {isSearching ? (
                 <HiArrowPath className="size-4 animate-spin" aria-hidden />
               ) : (
@@ -427,9 +437,9 @@ export default function Page() {
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="px-5 pb-6 pt-1 sm:px-6">
+                      <CardContent className="flex flex-col px-5 pb-6 pt-1 sm:px-6">
                         <div className="jp-divider mb-4 opacity-80" />
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="inline-flex items-center gap-2 rounded-full bg-primary/[0.09] px-3.5 py-1.5 text-xs font-medium text-foreground/90 ring-1 ring-primary/15 dark:bg-primary/15">
                             <HiCodeBracket className="size-3.5 shrink-0 text-primary" aria-hidden />
                             {repo.language ?? "言語なし"}
@@ -438,6 +448,18 @@ export default function Page() {
                             <HiStar className="size-3.5 shrink-0 text-destructive" aria-hidden />
                             {repo.stargazers_count.toLocaleString()} stars
                           </span>
+                          <Button variant="outline" size="sm" className="ml-auto shrink-0 gap-1" asChild>
+                            <Link
+                              href={`/repo/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}`}
+                              onClick={() => {
+                                setScrollY(window.scrollY)
+                                markRepoOpened(repoKey)
+                              }}
+                            >
+                              もっと見る
+                              <HiChevronRight className="size-3.5" aria-hidden />
+                            </Link>
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
