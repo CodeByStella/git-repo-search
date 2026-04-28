@@ -1,6 +1,6 @@
 import Image from "next/image"
 import { notFound } from "next/navigation"
-import { Eye, ExternalLink, GitFork, Globe, Star, TriangleAlert } from "lucide-react"
+import { Eye, GitFork, Globe, Star, TriangleAlert } from "lucide-react"
 
 import { BackButton } from "./back-button"
 import { CloneUrlCopy } from "./clone-url-copy"
@@ -29,51 +29,47 @@ export default async function RepositoryDetailPage({ params }: PageProps) {
       <BackButton />
 
       <Card className="jp-shell gap-0 py-0">
-        <CardHeader className="p-5">
+        <CardHeader className="flex flex-col items-center border-0 px-6 pb-2 pt-8 sm:px-8 sm:pt-10">
+          <Image
+            src={repository.owner.avatar_url}
+            alt={`${repository.owner.login} avatar`}
+            width={128}
+            height={128}
+            sizes="(max-width: 640px) 112px, 128px"
+            quality={85}
+            priority
+            className="size-28 rounded-full border-2 border-border/80 object-cover shadow-md ring-4 ring-muted/25 sm:size-32"
+          />
           <CardTitle className="sr-only">{repository.full_name}</CardTitle>
-          <CardDescription className="sr-only">
-            リポジトリの詳細情報と統計
-          </CardDescription>
+          <CardDescription className="sr-only">リポジトリの詳細情報と統計</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-7 p-6 pt-0 sm:p-8 sm:pt-0">
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-            <div className="flex items-center gap-3">
-              <Image
-                src={repository.owner.avatar_url}
-                alt={`${repository.owner.login} avatar`}
-                width={50}
-                height={50}
-                className="rounded-full border border-border/70"
-              />
-              <div>
-                <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-wide">
-                  {repository.full_name}
-                  <a
-                    href={repository.html_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label="GitHubで開く"
-                    className="inline-flex text-primary sm:hidden"
-                  >
-                    <ExternalLink className="size-5" />
-                  </a>
-                </h1>
-                <p className="text-sm text-muted-foreground">オーナー: {repository.owner.login}</p>
-              </div>
-            </div>
-            <a
-              href={repository.html_url}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden w-fit self-start rounded-md border border-border/80 px-4 py-2 text-sm text-primary transition-colors duration-250 hover:bg-muted/70 hover:text-primary/85 sm:inline-flex"
-            >
-              GitHubで開く
-            </a>
+        <CardContent className="space-y-7 px-6 pb-8 pt-2 sm:px-8">
+          <div className="space-y-4">
+            <h1 className="flex flex-wrap items-center justify-center gap-x-0 text-balance text-center text-xl font-semibold tracking-wide sm:text-2xl">
+              <a
+                href={`https://github.com/${repository.owner.login}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {repository.owner.login}
+              </a>
+              <span className="mx-0.5 select-none text-muted-foreground" aria-hidden>
+                /
+              </span>
+              <a
+                href={repository.html_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {repository.name}
+              </a>
+            </h1>
+            <p className="mx-auto max-w-prose text-pretty text-center text-sm leading-7 text-muted-foreground sm:text-[0.95rem]">
+              {repository.description ?? "説明はありません"}
+            </p>
           </div>
-
-          <p className="text-sm leading-7 text-muted-foreground sm:text-[0.95rem]">
-            {repository.description ?? "説明はありません"}
-          </p>
 
           <div className="jp-divider" />
 

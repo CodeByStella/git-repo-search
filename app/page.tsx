@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Circle, Search, Sparkles, Star } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -92,34 +92,37 @@ export default function Page() {
     }
   }, [setScrollY])
 
-  async function updateRepositories(query: string, nextPage: number, append: boolean) {
-    const data = await fetchRepositories(query, nextPage, PER_PAGE, activeLanguage, activeSort)
-    const fetchedItems = data.items as SearchRepositoryItem[]
+  const updateRepositories = useCallback(
+    async (query: string, nextPage: number, append: boolean) => {
+      const data = await fetchRepositories(query, nextPage, PER_PAGE, activeLanguage, activeSort)
+      const fetchedItems = data.items as SearchRepositoryItem[]
 
-    if (!append && nextPage === 1 && !activeLanguage) {
-      const languageCount = new Map<string, number>()
-      for (const repo of fetchedItems) {
-        if (!repo.language) {
-          continue
-        }
-        languageCount.set(repo.language, (languageCount.get(repo.language) ?? 0) + 1)
-      }
-      const sortedLanguages = [...languageCount.entries()]
-        .sort((a, b) => {
-          if (b[1] !== a[1]) {
-            return b[1] - a[1]
+      if (!append && nextPage === 1 && !activeLanguage) {
+        const languageCount = new Map<string, number>()
+        for (const repo of fetchedItems) {
+          if (!repo.language) {
+            continue
           }
-          return a[0].localeCompare(b[0])
-        })
-        .map(([language]) => language)
-      setAvailableLanguages(sortedLanguages)
-    }
+          languageCount.set(repo.language, (languageCount.get(repo.language) ?? 0) + 1)
+        }
+        const sortedLanguages = [...languageCount.entries()]
+          .sort((a, b) => {
+            if (b[1] !== a[1]) {
+              return b[1] - a[1]
+            }
+            return a[0].localeCompare(b[0])
+          })
+          .map(([language]) => language)
+        setAvailableLanguages(sortedLanguages)
+      }
 
-    setTotalCount(data.totalCount)
-    setPage(nextPage)
-    // 追加読み込み時は既存配列の末尾に連結し、初回検索時は結果を置き換える。
-    setItems((prev) => (append ? [...prev, ...fetchedItems] : fetchedItems))
-  }
+      setTotalCount(data.totalCount)
+      setPage(nextPage)
+      // 追加読み込み時は既存配列の末尾に連結し、初回検索時は結果を置き換える。
+      setItems((prev) => (append ? [...prev, ...fetchedItems] : fetchedItems))
+    },
+    [activeLanguage, activeSort, setItems, setPage, setTotalCount]
+  )
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -165,20 +168,35 @@ export default function Page() {
       return
     }
 
-    setError("")
-    setIsSearching(true)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) {
+        return
+      }
+      setError("")
+      setIsSearching(true)
+      void updateRepositories(activeQuery, 1, false)
+        .catch((err) => {
+          if (cancelled) {
+            return
+          }
+          setItems([])
+          setTotalCount(0)
+          setPage(0)
+          setError(err instanceof Error ? err.message : "リポジトリの取得に失敗しました。")
+        })
+        .finally(() => {
+          if (cancelled) {
+            return
+          }
+          setIsSearching(false)
+        })
+    })
 
-    updateRepositories(activeQuery, 1, false)
-      .catch((err) => {
-        setItems([])
-        setTotalCount(0)
-        setPage(0)
-        setError(err instanceof Error ? err.message : "リポジトリの取得に失敗しました。")
-      })
-      .finally(() => {
-        setIsSearching(false)
-      })
-  }, [activeLanguage, activeSort, activeQuery, hasSearched, setItems, setPage, setTotalCount])
+    return () => {
+      cancelled = true
+    }
+  }, [activeLanguage, activeSort, activeQuery, hasSearched, setItems, setPage, setTotalCount, updateRepositories])
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col gap-10 px-5 py-10 sm:px-8 sm:py-14">
@@ -279,32 +297,38 @@ export default function Page() {
                 return (
                   <li key={repo.id}>
                     <Card className="gap-3 py-0 transition duration-250 ease-out hover:-translate-y-px hover:border-primary/35 hover:bg-muted/35">
-                      <CardHeader className="px-5 pt-5 pb-0">
-                        <CardTitle className="text-base">
-                          <div className="flex items-start gap-3">
+                      <CardHeader className="block px-5 pt-5 pb-0">
+                        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4 sm:gap-5">
+                          <div className="flex w-20 shrink-0 justify-center sm:w-24">
                             <Image
                               src={repo.owner.avatar_url ?? "https://avatars.githubusercontent.com/u/0?v=4"}
                               alt={`${repo.owner.login} avatar`}
-                              width={28}
-                              height={28}
-                              className="mt-0.5 rounded-full border border-border/70"
+                              width={96}
+                              height={96}
+                              sizes="(max-width: 640px) 80px, 96px"
+                              quality={85}
+                              className="size-20 rounded-full border border-border/70 object-cover sm:size-24"
                             />
-                            <Link
-                              href={`/repo/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}`}
-                              onClick={() => {
-                                setScrollY(window.scrollY)
-                                markRepoOpened(repoKey)
-                              }}
-                              className={`block min-w-0 break-words text-[1.02rem] leading-6 text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline ${isOpened ? "text-primary/80" : ""
-                                }`}
-                            >
-                              {repo.full_name}
-                            </Link>
                           </div>
-                        </CardTitle>
-                        <CardDescription className="line-clamp-2 leading-relaxed">
-                          {repo.description ?? "説明はありません"}
-                        </CardDescription>
+                          <div className="min-w-0 space-y-2">
+                            <CardTitle className="text-base leading-snug">
+                              <Link
+                                href={`/repo/${encodeURIComponent(repo.owner.login)}/${encodeURIComponent(repo.name)}`}
+                                onClick={() => {
+                                  setScrollY(window.scrollY)
+                                  markRepoOpened(repoKey)
+                                }}
+                                className={`block break-words text-[1.02rem] text-foreground underline-offset-4 transition-colors hover:text-primary hover:underline ${isOpened ? "text-primary/80" : ""
+                                  }`}
+                              >
+                                {repo.full_name}
+                              </Link>
+                            </CardTitle>
+                            <CardDescription className="line-clamp-2 leading-relaxed">
+                              {repo.description ?? "説明はありません"}
+                            </CardDescription>
+                          </div>
+                        </div>
                       </CardHeader>
                       <CardContent className="px-5 pb-5">
                         <div className="jp-divider mb-4" />

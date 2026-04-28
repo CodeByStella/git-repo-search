@@ -62,12 +62,14 @@ function SearchStateProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem("repo-search-scroll-y", scrollY.toString())
   }, [scrollY])
   useEffect(() => {
-    // 初回表示時のみ、保存済みのスクロール位置を復元する。
+    // 初回表示時のみ、保存済みのスクロール位置を復元する（setState はマイクロタスクに逃がし同期エフェクト内の連鎖レンダーを避ける）。
     const savedScrollY = sessionStorage.getItem("repo-search-scroll-y")
     if (savedScrollY) {
-      setScrollY(Number(savedScrollY))
+      queueMicrotask(() => {
+        setScrollY(Number(savedScrollY))
+      })
     }
-  }, [])  
+  }, [])
 
   return (
     <SearchStateContext.Provider
