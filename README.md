@@ -1,80 +1,170 @@
 # Git Repo Search
 
-GitHub API を利用して、リポジトリの検索・絞り込み・並び替え・詳細確認を行う Next.js アプリケーションです。  
-検索体験の連続性（一覧状態の保持、スクロール位置復元）と、読みやすい UI/UX を重視して実装しています。
+GitHub の **リポジトリ検索 API** を利用し、キーワード検索・言語フィルター・並び替え・**ページネーション**・詳細表示までを一気通貫で行う **Next.js 16（App Router）** アプリケーションです。
+
+一覧から詳細へ遷移したあと **ブラウザの戻る** で検索結果に戻った際も、**クエリ・結果・ページ・スクロール位置** が維持されるよう React Context で状態を共有しています。UI は日本語を主とし、モバイルでも読みやすいレイアウトを意識しています。
+
+---
+
+## 目次
+
+1. [主な機能](#主な機能)
+2. [システム構成](#システム構成)
+3. [処理フロー（Mermaid）](#処理フローmermaid)
+4. [技術スタック](#技術スタック)
+5. [ディレクトリ構成](#ディレクトリ構成)
+6. [セットアップ](#セットアップ)
+7. [npm スクリプト](#npm-スクリプト)
+8. [SEO](#seo)
+9. [内部 API 仕様](#内部-api-仕様)
+10. [実装上の注意](#実装上の注意)
+11. [今後の改善案](#今後の改善案)
+
+---
 
 ## 主な機能
 
-### 1. リポジトリ検索
-- キーワード入力で GitHub の `search/repositories` を実行
-- 検索ボタン押下後に結果一覧を表示
-- 0 件時、エラー時、読み込み中の状態をそれぞれ表示
+| 区分 | 内容 |
+|------|------|
+| **検索** | キーワード入力 → GitHub `search/repositories` 相当の検索（アプリ内プロキシ経由） |
+| **フィルター** | 検索実行後に言語セレクトを表示。第 1 ページ結果から言語候補を集計し頻度順で提示 |
+| **並び順** | スター / フォーク / 更新日 の昇順・降順 |
+| **ページネーション** | GitHub の件数上限（実質 1000 件）を踏まえたページ切り替え。ページ変更時は画面上部へスクロール |
+| **一覧 UI** | カード表示（アバター・名前・説明・言語・スター）。開いたリポジトリはリンク色で区別 |
+| **詳細** | オーナー名・リポジトリ名をそれぞれ GitHub へのリンクに分割。統計は数値カウントアップ表示。クローン URL コピー |
+| **状態保持** | 検索状態・`sessionStorage` によるスクロール位置の復元 |
+| **SEO** | ルートの `metadata`・`sitemap`・`robots`・詳細ページの `generateMetadata` と JSON-LD |
 
-### 2. 言語フィルター / 並び順
-- 検索実行後にフィルター UI を表示（初期画面では非表示）
-- **言語フィルター**
-  - 「すべての言語」+ 検索結果に関連する言語候補を動的生成
-  - 候補は出現頻度順で表示
-- **並び順**
-  - スターが多い順 / 少ない順
-  - フォークが多い順 / 少ない順
-  - 最近更新された順 / 更新が古い順
-- フィルターまたは並び順変更時は、条件に合わせて再検索を実行
+---
 
-### 3. 一覧表示
-- カード形式でリポジトリ情報を表示
-  - オーナーアバター
-  - フルネーム
-  - 説明文
-  - 使用言語
-  - スター数
-- `さらに読み込む` でページネーション読み込み（Load More）
-- ホバー時にわずかな視覚フィードバック
-- 一度開いたリポジトリは既読風のリンク色で表示
+## システム構成
 
-### 4. 詳細ページ
-- 一覧から別ページ遷移（モーダルではなくページ遷移）
-- 以下を表示
-  - リポジトリ名 / オーナー
-  - 使用言語
-  - スター数
-  - ウォッチャー数
-  - フォーク数
-  - オープンイシュー数
-  - Clone URL（コピー機能付き）
-- モバイル表示ではヘッダー構造を最適化し、外部リンク導線を維持
+クライアント側の検索は **自前の Route Handler** 経由で GitHub に到達します。リポジトリ詳細は **サーバーコンポーネント** から GitHub REST API を直接呼び出します。
 
-### 5. 状態保持（戻る体験の改善）
-- 検索キーワード、結果一覧、ページ番号などをクライアント状態で保持
-- 詳細ページから戻った際に、前回のスクロール位置を復元
+```mermaid
+flowchart LR
+  subgraph Browser["ブラウザ"]
+    UI["検索 UI\n(app/page.tsx)"]
+  end
+  subgraph Next["Next.js"]
+    API["Route Handler\n/api/repositories"]
+    Detail["詳細ページ\ngetRepositoryDetails"]
+  end
+  subgraph GitHub["GitHub API"]
+    Search["GET /search/repositories"]
+    Repo["GET /repos/{owner}/{repo}"]
+  end
+  UI -->|"fetch 同一オリジン"| API
+  API -->|"サーバー側 fetch"| Search
+  Detail --> Repo
+```
+
+---
+
+## 処理フロー（Mermaid）
+
+### 検索・再検索（キーワード・言語・並び順）
+
+`activeQuery`・`activeLanguage`・`activeSort` のいずれかが変わると、**常に 1 ページ目から** 再取得します（`useEffect` + `updateRepositories`）。
+
+```mermaid
+flowchart TD
+  A[ユーザー: 検索 submit または\n言語/並び順変更] --> B{キーワード空?}
+  B -->|はい| C[エラー文言表示\n結果クリア]
+  B -->|いいえ| D[setActiveQuery 等\nContext 更新]
+  D --> E[useEffect 発火]
+  E --> F[setPage 1]
+  F --> G[setIsSearching true]
+  G --> H[updateRepositories\nquery, page=1]
+  H --> I["GET /api/repositories\n(q, page, language, sort)"]
+  I --> J{成功?}
+  J -->|はい| K[items / totalCount 更新\n言語候補は page1 かつ\n言語未指定時のみ再計算]
+  J -->|いいえ| L[エラー表示・結果クリア]
+  K --> M[setIsSearching false]
+  L --> M
+```
+
+### ページネーション
+
+一覧の **「次のページ」** 等は、**同じ `activeQuery` のまま** `page` だけ変えて再取得します（`append` による無限スクロールは使いません）。
+
+```mermaid
+flowchart TD
+  P1[ユーザー: ページ N を選択] --> P2{進行中 or\n範囲外?}
+  P2 -->|はい| P3[何もしない]
+  P2 -->|いいえ| P4[isPaging true]
+  P4 --> P5[updateRepositories\nquery, page=N]
+  P5 --> P6[items を差し替え\nsetPage N]
+  P6 --> P7[window.scrollTo top]
+  P7 --> P8[isPaging false]
+```
+
+### 詳細へ遷移とスクロール復元
+
+```mermaid
+sequenceDiagram
+  participant U as ユーザー
+  participant L as 一覧ページ
+  participant C as Context + sessionStorage
+  participant D as 詳細ページ
+  U->>L: リポジトリリンククリック
+  L->>C: setScrollY(現在の Y)\nmarkRepoOpened
+  L->>D: ナビゲート
+  U->>L: ブラウザ戻る
+  L->>C: 保存済み scrollY / items 等を利用
+  L->>L: 初回のみ requestAnimationFrame で\nscrollTo 復元
+```
+
+---
 
 ## 技術スタック
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **UI**: Tailwind CSS + shadcn/ui（Button / Card / Input / Select）
-- **Icons**: lucide-react
-- **Theme**: next-themes
-- **State**: React Context (`SearchStateProvider`)
+| 領域 | 採用技術 |
+|------|----------|
+| フレームワーク | **Next.js 16**（App Router、Turbopack 開発） |
+| 言語 | **TypeScript** |
+| スタイル | **Tailwind CSS** v4、`globals.css` でテーマ変数 |
+| UI 部品 | **shadcn/ui** 系（Button / Card / Input / Select など） |
+| アイコン | **react-icons**（Heroicons / Octicons 等） |
+| テーマ | **next-themes**（ショートカットでライト/ダーク切替） |
+| 一覧状態 | **React Context**（`SearchStateProvider`） |
 
-## ディレクトリ構成（主要部分）
+---
+
+## ディレクトリ構成
 
 ```text
 app/
-  page.tsx                          # 検索ページ（検索・フィルター・一覧）
-  repo/[owner]/[repo]/page.tsx      # 詳細ページ
-  api/repositories/route.ts          # GitHub検索プロキシAPI
+  layout.tsx                    # ルートレイアウト・metadata・JSON-LD（WebSite）
+  page.tsx                      # 検索トップ（Client Component）
+  globals.css                   # テーマ・ユーティリティクラス
+  robots.ts                     # robots.txt
+  sitemap.ts                    # sitemap.xml
+  api/
+    repositories/route.ts       # GitHub 検索プロキシ（GET）
+  repo/[owner]/[repo]/
+    page.tsx                    # 詳細ルート・generateMetadata
+    repository-detail-view.tsx  # 詳細 UI（Server）
+    back-button.tsx             # 戻る（Client）
+    clone-url-copy.tsx          # クローン URL コピー（Client）
 components/
-  search-state-provider.tsx          # 検索状態の共有
-  ui/                                # 共通UIコンポーネント
+  search-state-provider.tsx     # 検索・ページ・スクロール等の共有状態
+  search-pagination.tsx       # ページネーション UI
+  count-up.tsx                  # 詳細の数値アニメーション（Client）
+  theme-provider.tsx
+  ui/                           # 共通 UI
 lib/
-  github.ts                          # API呼び出しラッパー
+  github.ts                     # fetchRepositories（クライアント）/ getRepositoryDetails（cache）
+  site.ts                       # 公開 URL（metadata / sitemap / robots）
 ```
 
-## ローカル起動方法
+---
+
+## セットアップ
 
 ### 前提
-- Node.js / npm が利用可能であること
+
+- **Node.js** と **npm** が利用できること
 
 ### 手順
 
@@ -85,32 +175,47 @@ npm run dev
 
 ブラウザで `http://localhost:3000` を開いてください。
 
-## 利用可能な npm スクリプト
+---
 
-```bash
-npm run dev       # 開発サーバー起動
-npm run build     # 本番ビルド
-npm run start     # 本番サーバー起動
-npm run lint      # ESLint 実行
-npm run typecheck # TypeScript 型チェック
-npm run format    # ts/tsx を Prettier で整形
-```
+## npm スクリプト
 
-## API 仕様（アプリ内部）
+| コマンド | 説明 |
+|----------|------|
+| `npm run dev` | 開発サーバー起動（Turbopack） |
+| `npm run build` | 本番用ビルド |
+| `npm run start` | 本番サーバー起動 |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run format` | Prettier（`*.ts` / `*.tsx`） |
+
+---
+
+## SEO
+
+- **`NEXT_PUBLIC_SITE_URL`**（末尾スラッシュなし、例: `https://example.com`）を本番・プレビューで設定すると、`metadataBase`・canonical・`sitemap.xml`・`robots.txt` が正しい絶対 URL を指します。
+- 未設定時は **`VERCEL_URL`**（Vercel）、ローカルでは **`http://localhost:3000`** を使用します。
+- リポジトリ詳細は **`generateMetadata`** でタイトル・説明・OG / Twitter・canonical を生成します。
+- **`getRepositoryDetails`** は React の **`cache()`** でラップしており、メタデータ生成とページ本体で **同一リクエスト内の重複 fetch** を避けています。
+
+---
+
+## 内部 API 仕様
 
 ### `GET /api/repositories`
 
-GitHub Search API へのプロキシ。クライアントからはこのエンドポイントを利用します。
+GitHub **`/search/repositories`** へのプロキシ。ブラウザは **同一オリジン** のみ叩きます。
 
 #### クエリパラメータ
-- `q` (必須): 検索キーワード
-- `page` (任意): ページ番号（デフォルト: 1）
-- `per_page` (任意): 取得件数（10〜20に補正）
-- `language` (任意): 言語フィルター
-- `sort` (任意):  
-  `stars-desc` / `stars-asc` / `forks-desc` / `forks-asc` / `updated-desc` / `updated-asc`
 
-#### レスポンス形式
+| 名前 | 必須 | 説明 |
+|------|------|------|
+| `q` | はい | 検索キーワード |
+| `page` | いいえ | ページ番号（既定 `1`） |
+| `per_page` | いいえ | 1 ページあたり件数（**10〜20** にクランプ） |
+| `language` | いいえ | 言語フィルター（クエリに `language:xxx` として付与） |
+| `sort` | いいえ | `stars-desc` / `stars-asc` / `forks-desc` / `forks-asc` / `updated-desc` / `updated-asc`（既定 `stars-desc`） |
+
+#### レスポンス（成功時）
 
 ```json
 {
@@ -119,7 +224,7 @@ GitHub Search API へのプロキシ。クライアントからはこのエン�
 }
 ```
 
-エラー時:
+#### エラー時
 
 ```json
 {
@@ -129,25 +234,24 @@ GitHub Search API へのプロキシ。クライアントからはこのエン�
 }
 ```
 
-## 実装上のポイント
+---
 
-- **検索条件の一貫性**
-  - 検索語・言語・並び順を単一の状態として管理し、再検索時に必ず反映
-- **過剰な再描画の抑制**
-  - スクロール復元は初回のみ実行し、再レンダリング時の巻き戻りを回避
-- **アクセシビリティ**
-  - `aria-label` を付与し、キーボード操作を考慮した UI を採用
-- **UI/UX**
-  - 穏やかなトランジション、控えめなホバー、読みやすい余白設計
+## 実装上の注意
 
-## 注意事項
+- **GitHub API レート制限**  
+  トークン無しのリクエストのため、短時間に大量に叩くと **429** や失敗に繋がり得ます。
+- **検索結果の上限**  
+  GitHub 側の仕様で、実質 **1000 件** を超える結果は取得できません。ページ数計算でもその前提を置いています。
+- **スクロール復元**  
+  `useRef` で「初回のみ復元」に抑え、再レンダーでスクロールが巻き戻るのを防いでいます。
+- **Lint（React Compiler 系）**  
+  `useEffect` 内の同期的 `setState` を避けるため、一部で **`queueMicrotask`** や **`useCallback`** を利用しています。
 
-- GitHub API は未認証で利用しているため、レート制限の影響を受けます。
-- ネットワーク状況や GitHub 側制限により、検索が失敗する場合があります。
+---
 
 ## 今後の改善案
 
-- GitHub Personal Access Token による認証リクエスト対応
-- 言語候補の件数表示（例: TypeScript (42)）
-- ソートやフィルター状態の URL クエリ同期（共有可能 URL）
-- テスト拡充（UI テスト / API ハンドラのユニットテスト）
+- **GitHub Personal Access Token** による認証付きリクエスト（レート緩和）
+- 言語候補に **件数表示**（例: `TypeScript (42)`）
+- 検索条件の **URL クエリ同期**（共有・ブックマークしやすい URL）
+- **テスト**（API Route・`lib/github` のユニット、主要 UI の結合テスト）

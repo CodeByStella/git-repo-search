@@ -1,3 +1,5 @@
+import { cache } from "react"
+
 export type RepositorySearchItem = {
   id: number
   name: string
@@ -58,7 +60,7 @@ export async function fetchRepositories(
   return data
 }
 
-export async function getRepositoryDetails(
+export const getRepositoryDetails = cache(async function getRepositoryDetails(
   owner: string,
   repo: string
 ): Promise<RepositoryDetails | null> {
@@ -79,4 +81,4 @@ export async function getRepositoryDetails(
   } catch {
     return null
   }
-}
+})

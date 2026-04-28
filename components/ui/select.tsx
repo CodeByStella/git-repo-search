@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Check, ChevronDown } from "lucide-react"
+import { HiCheck, HiChevronDown } from "react-icons/hi2"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -17,14 +17,14 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-11 w-full items-center justify-between rounded-lg border border-input/90 bg-card/85 px-3 text-sm text-foreground transition-colors duration-250 outline-none focus-visible:border-primary/70 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground",
+        "flex h-11 w-full items-center justify-between rounded-xl border border-input/90 bg-card/90 px-3 text-sm text-foreground shadow-sm transition-colors duration-250 outline-none focus-visible:border-primary/70 focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground",
         className
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDown className="size-4 text-muted-foreground" />
+        <HiChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -37,7 +37,7 @@ function SelectContent({ className, children, position = "popper", ...props }: R
         data-slot="select-content"
         position={position}
         className={cn(
-          "relative z-50 max-h-80 min-w-[8rem] overflow-hidden rounded-md border border-border/80 bg-popover text-popover-foreground shadow-none",
+          "relative z-50 max-h-80 min-w-[8rem] overflow-hidden rounded-xl border border-border/80 bg-popover text-popover-foreground shadow-lg shadow-black/5 ring-1 ring-black/[0.04] dark:shadow-black/30 dark:ring-white/[0.06]",
           position === "popper" && "translate-y-1",
           className
         )}
@@ -61,7 +61,7 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
     >
       <span className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>
-          <Check className="size-3.5" />
+          <HiCheck className="size-3.5 shrink-0" aria-hidden />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

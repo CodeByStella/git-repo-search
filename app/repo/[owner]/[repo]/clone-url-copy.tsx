@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Check, Copy } from "lucide-react"
+import { HiCheck, HiClipboardDocument } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button"
 
@@ -26,19 +26,22 @@ export function CloneUrlCopy({ cloneUrl }: CloneUrlCopyProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border/70 bg-background/35 p-4">
-      <p className="text-muted-foreground text-sm">クローンURL</p>
-      <div className="mt-2 flex items-center gap-2">
-        <code className="bg-muted/65 block flex-1 rounded-md px-3 py-2 text-xs break-all">{cloneUrl}</code>
+    <div className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-card to-muted/30 p-5 shadow-sm ring-1 ring-black/[0.03] dark:from-card dark:to-muted/20 dark:ring-white/[0.05]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">クローン URL</p>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+        <code className="block flex-1 break-all rounded-xl border border-border/60 bg-background/80 px-4 py-3 font-mono text-[11px] leading-relaxed text-foreground shadow-inner sm:text-xs">
+          {cloneUrl}
+        </code>
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
+          className="h-11 w-full shrink-0 border-border/80 bg-background/80 shadow-sm sm:size-10 sm:w-10"
           onClick={handleCopy}
           aria-label="クローンURLをコピー"
           title="クローンURLをコピー"
         >
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+          {copied ? <HiCheck className="size-4 text-primary" aria-hidden /> : <HiClipboardDocument className="size-4" aria-hidden />}
         </Button>
       </div>
     </div>

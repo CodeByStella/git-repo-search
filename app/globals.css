@@ -48,24 +48,24 @@
 }
 
 :root {
-    --background: #f7f3ef;
-    --foreground: #2c2c2c;
-    --card: #fcfaf8;
-    --card-foreground: #2c2c2c;
-    --popover: #fcfaf8;
-    --popover-foreground: #2c2c2c;
-    --primary: #3a5a78;
-    --primary-foreground: #f7f3ef;
-    --secondary: #ede8e3;
-    --secondary-foreground: #2c2c2c;
-    --muted: #efeae5;
-    --muted-foreground: #5b5b5b;
-    --accent: #e8e2dc;
-    --accent-foreground: #2c2c2c;
-    --destructive: #b23a48;
-    --border: #d5ccc2;
-    --input: #d8cec4;
-    --ring: #3a5a78;
+    --background: #f2ede6;
+    --foreground: #171a1e;
+    --card: #fdfbf8;
+    --card-foreground: #171a1e;
+    --popover: #fdfbf8;
+    --popover-foreground: #171a1e;
+    --primary: #1e4a6b;
+    --primary-foreground: #f8f4ef;
+    --secondary: #e9e2da;
+    --secondary-foreground: #171a1e;
+    --muted: #ebe4dc;
+    --muted-foreground: #5c564d;
+    --accent: #e2d9cf;
+    --accent-foreground: #171a1e;
+    --destructive: #a83240;
+    --border: #d0c4b6;
+    --input: #cfc2b4;
+    --ring: #2d6a94;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -83,14 +83,14 @@
 }
 
 .dark {
-    --background: #1f2123;
-    --foreground: #f3ece6;
-    --card: #26292c;
-    --card-foreground: #f3ece6;
-    --popover: #26292c;
-    --popover-foreground: #f3ece6;
-    --primary: #6e8eac;
-    --primary-foreground: #f8f4ef;
+    --background: #121418;
+    --foreground: #f2ebe3;
+    --card: #1c1f24;
+    --card-foreground: #f2ebe3;
+    --popover: #1c1f24;
+    --popover-foreground: #f2ebe3;
+    --primary: #7eb0d4;
+    --primary-foreground: #0f1218;
     --secondary: #31353a;
     --secondary-foreground: #f3ece6;
     --muted: #31353a;
@@ -123,9 +123,12 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(circle at 1px 1px, rgb(58 90 120 / 0.05) 1px, transparent 0),
-      linear-gradient(120deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.08));
-    background-size: 22px 22px, 100% 100%;
+      radial-gradient(ellipse 120% 80% at 50% -30%, rgb(30 74 107 / 0.14), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgb(168 50 64 / 0.06), transparent 45%),
+      radial-gradient(circle at 1px 1px, rgb(30 74 107 / 0.045) 1px, transparent 0),
+      linear-gradient(165deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0.12) 45%, transparent 100%);
+    background-size: 100% 100%, 100% 100%, 22px 22px, 100% 100%;
+    background-attachment: fixed;
     letter-spacing: 0.01em;
     }
   html {
@@ -136,13 +139,13 @@
     letter-spacing: 0.02em;
   }
   ::selection {
-    background-color: rgb(58 90 120 / 0.25);
+    background-color: rgb(30 74 107 / 0.22);
   }
 }
 
 @layer utilities {
   .jp-shell {
-    @apply rounded-xl border border-border/80 bg-card/90 shadow-none backdrop-blur-[1px];
+    @apply rounded-2xl border border-border/70 bg-card/92 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.14)] backdrop-blur-md ring-1 ring-black/[0.03] dark:ring-white/[0.06];
   }
 
   .jp-divider {
